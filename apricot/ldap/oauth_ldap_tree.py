@@ -14,7 +14,8 @@ from apricot.oauth import OAuthClient, OAuthDataAdaptor
 class OAuthLDAPTree:
 
     def __init__(
-        self, domain: str, oauth_client: OAuthClient, enable_group_of_groups: bool, refresh_interval: int = 60
+        self, domain: str, oauth_client: OAuthClient, enable_group_of_groups: bool, refresh_interval: int = 60,
+            background_refresh: bool = False
     ) -> None:
         """
         Initialise an OAuthLDAPTree
@@ -30,6 +31,7 @@ class OAuthLDAPTree:
         self.refresh_interval = refresh_interval
         self.root_: OAuthLDAPEntry | None = None
         self.enable_group_of_groups = enable_group_of_groups
+        self.background_refresh = background_refresh
 
     @property
     def dn(self) -> DistinguishedName:
@@ -42,9 +44,14 @@ class OAuthLDAPTree:
 
         @return: An OAuthLDAPEntry for the tree
         """
+        if not self.background_refresh:
+            self.refresh()
+        return self.root_
+
+    def refresh(self):
         if (
-            not self.root_
-            or (time.monotonic() - self.last_update) > self.refresh_interval
+                not self.root_
+                or (time.monotonic() - self.last_update) > self.refresh_interval
         ):
             # Update users and groups from the OAuth server
             log.msg("Retrieving OAuth data.")
@@ -81,7 +88,6 @@ class OAuthLDAPTree:
             # Set last updated time
             log.msg("Finished building LDAP tree.")
             self.last_update = time.monotonic()
-        return self.root_
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} with backend {self.oauth_client.__class__.__name__}"
